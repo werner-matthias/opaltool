@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+from optparse import OptionParser
+import os, fnmatch
+
+defaultmountpoint="/Volumes/webdav"
+
+def main():
+    mountpoint=defaultmountpoint
+    usage="""
+  %prog [-c] [-m <mountpoint>] <file> <course name>[:<path>]
+  %prog -r [-m <mountpoint>] <course name>:<path/file>
+"""
+    parser = OptionParser(usage)
+    parser.add_option("-c", "--copy", action="store_true",
+                      help="copy file (default)")
+    parser.add_option("-r", "--remove", action="store_true",
+                      help="remove file")
+    parser.add_option("-e", "--expurgate", action="store_true",
+                      help="expurgate OSX shaddow files")
+                          
+    parser.add_option("-m", dest="mountpoint", action="store",
+                      help="mountpoint of OPLA WebDAV (default:%s)" % (mountpoint))
+
+    (options, args) = parser.parse_args()
+    if options.copy and options.remove:
+        parser.error("options -a and -b are mutually exclusive")
+    if not(options.copy) and not(options.remove):
+        options.copy = True
+    if options.mountpoint: mountpoint=options.mountpoint
+    if options.copy:
+        dest = build_opal_path(args[1],mountpoint, args[1][-1]=='/')
+        if len(dest)==0:
+            print("Error: Can't find %s"%args[1])
+            exit(-1)
+        if not dest[0][1]:
+            destpath=dest[0][0]+'/'+os.path.basename(args[0])
+        else:
+            destpath=dest[0][0]+'/'+dest[0][1]
+        print("Dest=%s"%destpath)
+        
+    if options.remove:
+         dest = parse_opal_loc(args[0],mountpoint,True)
+        
+        
+def build_opal_path(str,mountpoint,must_exist=False):
+    if ':' in str:
+        str=str+':'
+    el = str.split(':')
+    opalcourse=el[0]
+    opalpathelements=el[1].split('/')
+    opalpath=mountpoint+'/coursefolders/'+opalcourse+'*/_courseelementdata'
+    for el in opalpathelements:
+        if not el:
+            pass
+        else:
+            opalpath=opalpath+'/'+el+'[ ]?*'
+    for root, dirs, files in os.walk(mountpoint):
+        if fnmatch.fnmatch(root,opalpath):
+            return [(root,'')]
+    retlist=[]    
+    for root, dirs, files in os.walk(mountpoint):
+        if fnmatch.fnmatch(root,os.path.dirname(opalpath)):
+            for f in files:
+                if fnmatch.fnmatch(f,opalpathelements[-1]):
+                    retlist.append((root,f))
+            if (len(retlist) == 0) and not must_exist and not '*' in opalpathelements[-1]:
+                retlist.append((root,opalpathelements[-1]))
+    return retlist
+    
+if __name__ == "__main__":
+    main()
