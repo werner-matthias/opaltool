@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+import requests
+
+def create_opal_session(username, password):
+    login_url = "https://bildungsportal.sachsen.de/opal/auth
